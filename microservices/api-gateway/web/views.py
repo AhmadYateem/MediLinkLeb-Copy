@@ -446,13 +446,204 @@ def pharmacy_home_view(request):
         messages.error(request, 'Access denied: Pharmacy account required')
         return redirect('login')
 
+    # Get pharmacy profile and staff from Pharmacy Service
+    pharmacy_data = None
+    staff = []
+    pharmacy_name = user.get('username', 'Pharmacy')
+
+    try:
+        pharmacy_response = requests.get(
+            f'{settings.PHARMACY_SERVICE_URL}/api/pharmacies/{user["id"]}/',
+            headers=get_auth_headers(request),
+            timeout=5
+        )
+        if pharmacy_response.status_code == 200:
+            pharmacy_data = pharmacy_response.json()
+            staff = pharmacy_data.get('staff', [])
+            # Use user's first_name + last_name if available, else username
+            if user.get('first_name'):
+                pharmacy_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+    except:
+        pass
+
+    # TODO: Get inventory statistics from Inventory Service when it's built
+    # For now, use placeholder data
     context = {
         'user': user,
-        'pending_orders': [],  # TODO: Get from pharmacy service
-        'inventory_low': [],  # TODO: Get from inventory service
+        'pharmacy': pharmacy_data,
+        'pharmacy_name': pharmacy_name,
+        'staff': staff,
+        'today': 'Today',
+        'critical_medicines': [],  # TODO: Get from inventory service
+        'total_medicines': 0,  # TODO: Get from inventory service
+        'total_stock_quantity': 0,  # TODO: Get from inventory service
+        'low_stock_count': 0,  # TODO: Get from inventory service
+        'expiring_count': 0,  # TODO: Get from inventory service
     }
 
     return render(request, 'accounts/pharmacy_home.html', context)
+
+
+@require_http_methods(["GET", "POST"])
+def pharmacy_settings_view(request):
+    """Pharmacy settings - manage profile and staff"""
+    if not is_authenticated(request):
+        return redirect('login')
+
+    user = get_current_user(request)
+    if user.get('role') != 'pharmacy':
+        messages.error(request, 'Access denied')
+        return redirect('login')
+
+    # Get pharmacy profile from Pharmacy Service
+    pharmacy_data = None
+    staff = []
+    pharmacy_name = user.get('username', 'Pharmacy')
+
+    try:
+        pharmacy_response = requests.get(
+            f'{settings.PHARMACY_SERVICE_URL}/api/pharmacies/{user["id"]}/',
+            headers=get_auth_headers(request),
+            timeout=5
+        )
+        if pharmacy_response.status_code == 200:
+            pharmacy_data = pharmacy_response.json()
+            staff = pharmacy_data.get('staff', [])
+            if user.get('first_name'):
+                pharmacy_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+    except:
+        pass
+
+    if request.method == 'POST':
+        which_form = request.POST.get('which')
+
+        if which_form == 'profile':
+            # Update pharmacy profile
+            address = request.POST.get('address')
+            license_number = request.POST.get('license_number')
+            phone = request.POST.get('phone')
+
+            try:
+                response = requests.put(
+                    f'{settings.PHARMACY_SERVICE_URL}/api/pharmacies/{user["id"]}/',
+                    json={
+                        'user_id': user['id'],
+                        'address': address,
+                        'license_number': license_number,
+                        'phone': phone
+                    },
+                    headers=get_auth_headers(request),
+                    timeout=5
+                )
+
+                if response.status_code == 200:
+                    messages.success(request, 'Pharmacy profile updated successfully')
+                else:
+                    error_data = response.json()
+                    messages.error(request, f'Error updating profile: {error_data}')
+            except requests.exceptions.RequestException as e:
+                messages.error(request, f'Unable to update profile: {str(e)}')
+
+            return redirect('pharmacy_settings')
+
+        elif which_form == 'staff':
+            # Add new staff member
+            name = request.POST.get('name')
+            email = request.POST.get('email')
+            phone = request.POST.get('phone')
+            position = request.POST.get('position')
+
+            try:
+                response = requests.post(
+                    f'{settings.PHARMACY_SERVICE_URL}/api/pharmacies/{user["id"]}/staff/',
+                    json={
+                        'pharmacy': user['id'],
+                        'name': name,
+                        'email': email,
+                        'phone': phone,
+                        'position': position
+                    },
+                    headers=get_auth_headers(request),
+                    timeout=5
+                )
+
+                if response.status_code == 201:
+                    messages.success(request, 'Staff member added successfully')
+                else:
+                    error_data = response.json()
+                    messages.error(request, f'Error adding staff: {error_data}')
+            except requests.exceptions.RequestException as e:
+                messages.error(request, f'Unable to add staff: {str(e)}')
+
+            return redirect('pharmacy_settings')
+
+    context = {
+        'user': user,
+        'pharmacy': pharmacy_data,
+        'pharmacy_name': pharmacy_name,
+        'staff': staff,
+    }
+
+    return render(request, 'accounts/pharmacy_settings.html', context)
+
+
+@require_http_methods(["POST"])
+def delete_staff_view(request, staff_id):
+    """Delete pharmacy staff member"""
+    if not is_authenticated(request):
+        return redirect('login')
+
+    user = get_current_user(request)
+    if user.get('role') != 'pharmacy':
+        messages.error(request, 'Access denied')
+        return redirect('login')
+
+    try:
+        response = requests.delete(
+            f'{settings.PHARMACY_SERVICE_URL}/api/pharmacies/{user["id"]}/staff/{staff_id}/',
+            headers=get_auth_headers(request),
+            timeout=5
+        )
+
+        if response.status_code == 204:
+            messages.success(request, 'Staff member deleted successfully')
+        else:
+            messages.error(request, 'Error deleting staff member')
+    except requests.exceptions.RequestException as e:
+        messages.error(request, f'Unable to delete staff: {str(e)}')
+
+    return redirect('pharmacy_settings')
+
+
+# Placeholder views for inventory features (to be implemented when Inventory Service is built)
+@require_http_methods(["GET"])
+def add_medicine_view(request):
+    """Add medicine - placeholder for Inventory Service"""
+    if not is_authenticated(request):
+        return redirect('login')
+
+    messages.info(request, 'Inventory Service is not yet implemented. This feature will be available soon.')
+    return redirect('pharmacy_home')
+
+
+@require_http_methods(["GET"])
+def update_stock_view(request):
+    """Update stock - placeholder for Inventory Service"""
+    if not is_authenticated(request):
+        return redirect('login')
+
+    messages.info(request, 'Inventory Service is not yet implemented. This feature will be available soon.')
+    return redirect('pharmacy_home')
+
+
+@require_http_methods(["GET"])
+def view_inventory_view(request):
+    """View inventory - placeholder for Inventory Service"""
+    if not is_authenticated(request):
+        return redirect('login')
+
+    messages.info(request, 'Inventory Service is not yet implemented. This feature will be available soon.')
+    return redirect('pharmacy_home')
 
 
 # ============================================================================

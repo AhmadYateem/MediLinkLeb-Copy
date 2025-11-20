@@ -25,6 +25,11 @@ urlpatterns = [
 
     # Pharmacy pages
     path('pharmacy/home/', views.pharmacy_home_view, name='pharmacy_home'),
+    path('pharmacy/settings/', views.pharmacy_settings_view, name='pharmacy_settings'),
+    path('pharmacy/staff/<int:staff_id>/delete/', views.delete_staff_view, name='delete_pharmacist'),
+    path('pharmacy/medicine/add/', views.add_medicine_view, name='add_medicine'),
+    path('pharmacy/stock/update/', views.update_stock_view, name='update_stock'),
+    path('pharmacy/inventory/', views.view_inventory_view, name='view_inventory'),
 
     # Utility
     path('error/', views.error_view, name='error'),

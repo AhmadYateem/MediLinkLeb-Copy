@@ -128,46 +128,66 @@
             <div class="body">
               <form method="post" class="form">
                 {% csrf_token %}
-                <input type="hidden" name="which" value="name"/>
-                <label for="id_pharmacy_name">Pharmacy Name</label>
-                {{ name_form.pharmacy_name }}
+                <input type="hidden" name="which" value="profile"/>
+
+                <label for="id_address">Address</label>
+                <input type="text" id="id_address" name="address" value="{{ pharmacy.address|default:'' }}" placeholder="Pharmacy address">
+
+                <label for="id_license_number">License Number</label>
+                <input type="text" id="id_license_number" name="license_number" value="{{ pharmacy.license_number|default:'' }}" placeholder="License number">
+
+                <label for="id_phone">Phone</label>
+                <input type="text" id="id_phone" name="phone" value="{{ pharmacy.phone|default:'' }}" placeholder="Phone number">
+
                 <div>
-                  <button type="submit" class="btn">Save</button>
+                  <button type="submit" class="btn">Save Profile</button>
                 </div>
               </form>
             </div>
           </div>
 
           <div class="panel">
-            <div class="head"><h2>Pharmacists</h2></div>
+            <div class="head"><h2>Pharmacist Staff</h2></div>
             <div class="body">
               <form method="post" class="form" style="margin-bottom:1rem;">
                 {% csrf_token %}
                 <input type="hidden" name="which" value="staff"/>
-                {{ staff_form.as_p }}
+
+                <label for="id_name">Name</label>
+                <input type="text" id="id_name" name="name" required placeholder="Staff member name">
+
+                <label for="id_email">Email</label>
+                <input type="email" id="id_email" name="email" required placeholder="staff@example.com">
+
+                <label for="id_phone_staff">Phone</label>
+                <input type="text" id="id_phone_staff" name="phone" placeholder="Phone number">
+
+                <label for="id_position">Position</label>
+                <input type="text" id="id_position" name="position" placeholder="e.g., Pharmacist, Assistant">
+
                 <div>
-                  <button type="submit" class="btn">Add Pharmacist</button>
+                  <button type="submit" class="btn">Add Staff Member</button>
                 </div>
               </form>
 
               <table>
-                <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Position</th><th></th></tr></thead>
                 <tbody>
                   {% for s in staff %}
                     <tr>
                       <td>{{ s.name }}</td>
                       <td>{{ s.email }}</td>
-                      <td>{{ s.phone }}</td>
+                      <td>{{ s.phone|default:'-' }}</td>
+                      <td>{{ s.position|default:'-' }}</td>
                       <td style="text-align:right;">
-                        <a class="btn-ghost" href="{% url 'edit_pharmacist' s.id %}">Edit</a>
-                        <form method="post" action="{% url 'delete_pharmacist' s.id %}" style="display:inline; margin-left:.4rem;">
+                        <form method="post" action="{% url 'delete_pharmacist' s.id %}" style="display:inline;">
                           {% csrf_token %}
-                          <button class="btn-ghost" type="submit" onclick="return confirm('Delete this pharmacist?');">Delete</button>
+                          <button class="btn-ghost" type="submit" onclick="return confirm('Delete this staff member?');">Delete</button>
                         </form>
                       </td>
                     </tr>
                   {% empty %}
-                    <tr><td colspan="4" class="muted">No pharmacists yet.</td></tr>
+                    <tr><td colspan="5" style="text-align:center; color:var(--ink-dim); padding:1rem;">No staff members yet. Add one above.</td></tr>
                   {% endfor %}
                 </tbody>
               </table>
