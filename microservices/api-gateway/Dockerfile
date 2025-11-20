@@ -1,19 +1,44 @@
-FROM nginx:alpine
+# Multi-stage build for API Gateway with Web Interface
+FROM python:3.11-slim as builder
 
-# Remove default nginx config
-RUN rm /etc/nginx/nginx.conf
+WORKDIR /app
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/nginx.conf
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy frontend static files
-COPY frontend /usr/share/nginx/html
+# Final stage
+FROM python:3.11-slim
 
-# Expose port 80
-EXPOSE 80
+WORKDIR /app
+
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY gateway/ gateway/
+COPY web/ web/
+COPY templates/ templates/
+COPY static/ static/
+COPY manage.py .
+
+# Create staticfiles directory
+RUN mkdir -p staticfiles
+
+# Collect static files
+RUN python manage.py collectstatic --noinput || true
+
+# Create a non-root user
+RUN useradd -m -u 1000 gateway && chown -R gateway:gateway /app
+USER gateway
+
+# Expose port
+EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=2)"
 
-CMD ["nginx", "-g", "daemon off;"]
+# Run with gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "60", "gateway.wsgi:application"]
